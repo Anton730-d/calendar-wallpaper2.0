@@ -1,237 +1,199 @@
-// api/wallpaper.js
-// Vercel Serverless Function — генерує PNG календар
-
+// api/wallpaper.js — Vercel Edge Function
 export const config = { runtime: 'edge' };
 
 const MODELS = {
-  iphone_16_pro:  { w: 1206, h: 2622 },
-  iphone_16:      { w: 1179, h: 2556 },
-  iphone_15_pro:  { w: 1179, h: 2556 },
-  iphone_15:      { w: 1179, h: 2556 },
-  iphone_14_pro:  { w: 1179, h: 2556 },
-  iphone_14:      { w: 1170, h: 2532 },
-  iphone_13_pro:  { w: 1170, h: 2532 },
-  iphone_13:      { w: 1170, h: 2532 },
-  iphone_se:      { w: 750,  h: 1334 },
+  iphone_16_pro: { w:1206, h:2622 }, iphone_16: { w:1179, h:2556 },
+  iphone_15_pro: { w:1179, h:2556 }, iphone_15: { w:1179, h:2556 },
+  iphone_14_pro: { w:1179, h:2556 }, iphone_14: { w:1170, h:2532 },
+  iphone_13_pro: { w:1170, h:2532 }, iphone_13: { w:1170, h:2532 },
+  iphone_se:     { w:750,  h:1334 },
 };
 
 const THEMES = {
-  graphite_orange: { bg:'#111111', past:'#ff8c42', today:'#ff8c42', future:'#2a2a2a', text:'#ffffff', pastOpacity:0.5 },
-  graphite_yellow: { bg:'#111111', past:'#e8ff47', today:'#e8ff47', future:'#2a2a2a', text:'#ffffff', pastOpacity:0.5 },
-  graphite_green:  { bg:'#111111', past:'#4fffb0', today:'#4fffb0', future:'#2a2a2a', text:'#ffffff', pastOpacity:0.5 },
-  graphite_blue:   { bg:'#111111', past:'#47b8ff', today:'#47b8ff', future:'#2a2a2a', text:'#ffffff', pastOpacity:0.5 },
-  graphite_red:    { bg:'#111111', past:'#ff4747', today:'#ff4747', future:'#2a2a2a', text:'#ffffff', pastOpacity:0.5 },
-  graphite_pink:   { bg:'#111111', past:'#ff47c8', today:'#ff47c8', future:'#2a2a2a', text:'#ffffff', pastOpacity:0.5 },
-  white_orange:    { bg:'#f5f5f5', past:'#ff8c42', today:'#ff8c42', future:'#e0e0e0', text:'#111111', pastOpacity:0.5 },
-  white_yellow:    { bg:'#f5f5f5', past:'#c8a800', today:'#c8a800', future:'#e0e0e0', text:'#111111', pastOpacity:0.5 },
-  white_blue:      { bg:'#f5f5f5', past:'#3b82f6', today:'#3b82f6', future:'#e0e0e0', text:'#111111', pastOpacity:0.5 },
-  white_green:     { bg:'#f5f5f5', past:'#22c55e', today:'#22c55e', future:'#e0e0e0', text:'#111111', pastOpacity:0.5 },
-  black_white:     { bg:'#000000', past:'#ffffff', today:'#ffffff', future:'#333333', text:'#ffffff', pastOpacity:0.5 },
+  graphite_orange: { bg:'#111111', accent:'#ff8c42', dot_past:'#ff8c42', dot_future:'#2d2d2d', text:'#ffffff' },
+  graphite_yellow: { bg:'#111111', accent:'#e8ff47', dot_past:'#e8ff47', dot_future:'#2d2d2d', text:'#ffffff' },
+  graphite_green:  { bg:'#111111', accent:'#4fffb0', dot_past:'#4fffb0', dot_future:'#2d2d2d', text:'#ffffff' },
+  graphite_blue:   { bg:'#111111', accent:'#47b8ff', dot_past:'#47b8ff', dot_future:'#2d2d2d', text:'#ffffff' },
+  graphite_red:    { bg:'#111111', accent:'#ff4747', dot_past:'#ff4747', dot_future:'#2d2d2d', text:'#ffffff' },
+  graphite_pink:   { bg:'#111111', accent:'#ff47c8', dot_past:'#ff47c8', dot_future:'#2d2d2d', text:'#ffffff' },
+  white_orange:    { bg:'#f0f0f0', accent:'#ff8c42', dot_past:'#ff8c42', dot_future:'#d8d8d8', text:'#111111' },
+  white_yellow:    { bg:'#f0f0f0', accent:'#c8a800', dot_past:'#c8a800', dot_future:'#d8d8d8', text:'#111111' },
+  white_blue:      { bg:'#f0f0f0', accent:'#3b82f6', dot_past:'#3b82f6', dot_future:'#d8d8d8', text:'#111111' },
+  white_green:     { bg:'#f0f0f0', accent:'#22c55e', dot_past:'#22c55e', dot_future:'#d8d8d8', text:'#111111' },
+  black_white:     { bg:'#000000', accent:'#ffffff', dot_past:'#ffffff', dot_future:'#2d2d2d', text:'#ffffff' },
 };
 
 const MONTHS = {
-  uk: ['Сiч','Лют','Бер','Квi','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'],
-  ru: ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'],
-  en: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
-  pl: ['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paz','Lis','Gru'],
-  de: ['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'],
+  uk: ['СIЧ','ЛЮТ','БЕР','КВI','ТРА','ЧЕР','ЛИП','СЕР','ВЕР','ЖОВ','ЛИС','ГРУ'],
+  ru: ['ЯНВ','ФЕВ','МАР','АПР','МАЙ','ИЮН','ИЮЛ','АВГ','СЕН','ОКТ','НОЯ','ДЕК'],
+  en: ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'],
+  pl: ['STY','LUT','MAR','KWI','MAJ','CZE','LIP','SIE','WRZ','PAZ','LIS','GRU'],
+  de: ['JAN','FEB','MAR','APR','MAI','JUN','JUL','AUG','SEP','OKT','NOV','DEZ'],
 };
 
-function hexToRgb(hex, alpha = 1) {
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-function getDateInTimezone(tzOffset) {
+function getDateInTimezone(tz) {
   const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  return new Date(utc + tzOffset * 3600000);
+  return new Date(now.getTime() + now.getTimezoneOffset()*60000 + tz*3600000);
+}
+function getDayOfYear(d) {
+  return Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000);
+}
+function getDaysInYear(y) {
+  return ((y%4===0&&y%100!==0)||y%400===0) ? 366 : 365;
+}
+function isWeekend(y,m,d) {
+  const dow = new Date(y,m,d).getDay();
+  return dow===0||dow===6;
 }
 
-function getDayOfYear(date) {
-  const start = new Date(date.getFullYear(), 0, 0);
-  return Math.floor((date - start) / 86400000);
-}
-
-function getDaysInYear(year) {
-  return ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
-}
-
-function isWeekend(year, month, day) {
-  const dow = new Date(year, month, day).getDay();
-  return dow === 0 || dow === 6;
-}
-
-// Draw SVG calendar and return as Response
 export default async function handler(req) {
-  const { searchParams } = new URL(req.url);
-
-  const model       = searchParams.get('model') || 'iphone_15_pro';
-  const style       = searchParams.get('style') || 'dots';
-  const calSize     = searchParams.get('calendar_size') || 'standard';
-  const weekendMode = searchParams.get('weekend_mode') || 'weekends_only';
-  const opacity     = parseInt(searchParams.get('opacity') || '0');
-  const themeName   = searchParams.get('theme') || 'graphite_orange';
-  const lang        = searchParams.get('lang') || 'uk';
-  const tz          = parseFloat(searchParams.get('timezone') || '2');
-  const footer      = searchParams.get('footer') || 'days_left_percent_left';
+  const sp = new URL(req.url).searchParams;
+  const model    = sp.get('model')         || 'iphone_15_pro';
+  const style    = sp.get('style')         || 'dots';
+  const calSize  = sp.get('calendar_size') || 'standard';
+  const wkMode   = sp.get('weekend_mode')  || 'weekends_only';
+  const opacity  = parseInt(sp.get('opacity')||'0');
+  const tName    = sp.get('theme')         || 'graphite_orange';
+  const lang     = sp.get('lang')          || 'uk';
+  const tz       = parseFloat(sp.get('timezone')||'2');
+  const footer   = sp.get('footer')        || 'days_left_percent_left';
 
   const { w, h } = MODELS[model] || MODELS['iphone_15_pro'];
-  const theme = THEMES[themeName] || THEMES['graphite_orange'];
-  const months = MONTHS[lang] || MONTHS['uk'];
+  const T = THEMES[tName] || THEMES['graphite_orange'];
+  const MN = MONTHS[lang] || MONTHS['uk'];
 
-  const now = getDateInTimezone(tz);
-  const year = now.getFullYear();
-  const todayMonth = now.getMonth();
-  const todayDay = now.getDate();
-  const dayOfYear = getDayOfYear(now);
-  const daysInYear = getDaysInYear(year);
-  const daysLeft = daysInYear - dayOfYear;
-  const percentLeft = Math.round((daysLeft / daysInYear) * 100);
-  const percentPassed = 100 - percentLeft;
+  const now      = getDateInTimezone(tz);
+  const year     = now.getFullYear();
+  const curM     = now.getMonth();
+  const curD     = now.getDate();
+  const doy      = getDayOfYear(now);
+  const diy      = getDaysInYear(year);
+  const dLeft    = diy - doy;
+  const pctLeft  = Math.round((dLeft/diy)*100);
+  const pctPassed= 100-pctLeft;
 
-  // Scale factor
-  const sizeScale = calSize === 'small' ? 0.75 : calSize === 'large' ? 1.25 : 1.0;
+  const scl = calSize==='small'?0.75 : calSize==='large'?1.25 : 1.0;
 
-  // Layout: 3 columns x 4 rows of month blocks
-  const cols = 3;
-  const rows = 4;
-  const padX = w * 0.06;
-  const padY = h * 0.12;
-  const gapX = w * 0.03;
-  const gapY = h * 0.025;
+  // Grid layout
+  const COLS=3, ROWS=4;
+  const pxL = w*0.055, pxR = w*0.055;
+  const pyT = h*0.10,  pyB = h*0.06;
+  const gX  = w*0.025, gY  = h*0.02;
 
-  const blockW = (w - padX * 2 - gapX * (cols - 1)) / cols;
-  const blockH = (h - padY * 2 - gapY * (rows - 1)) / rows;
+  const bW  = (w - pxL - pxR - gX*(COLS-1)) / COLS;
+  const bH  = (h - pyT - pyB - gY*(ROWS-1)) / ROWS;
 
-  // Cell sizes based on block size and scale
-  const cellSize = Math.round(Math.min(blockW / 7, blockH / 8) * sizeScale);
-  const cellGap = Math.max(2, Math.round(cellSize * 0.25));
-  const monthLabelH = Math.round(cellSize * 1.2);
-  const fontSize = Math.max(8, Math.round(cellSize * 0.55));
-  const monthFontSize = Math.max(10, Math.round(cellSize * 0.65));
+  const cs  = Math.floor(Math.min(bW/7.5, bH/9) * scl);  // cell size
+  const cg  = Math.max(1, Math.round(cs*0.22));            // cell gap
+  const mLH = Math.round(cs*1.3);                          // month label height
+  const mFS = Math.max(9, Math.round(cs*0.62));            // month font size
+  const dFS = Math.max(7, Math.round(cs*0.52));            // day font size
 
   // Footer text
-  let footerText = '';
-  if (footer === 'days_left') footerText = `${daysLeft} ${lang === 'uk' ? 'днiв залишилось' : lang === 'ru' ? 'дней осталось' : 'days left'}`;
-  else if (footer === 'days_passed') footerText = `${dayOfYear} ${lang === 'uk' ? 'днiв пройдено' : lang === 'ru' ? 'дней прошло' : 'days passed'}`;
-  else if (footer === 'percent_left') footerText = `${percentLeft}%`;
-  else if (footer === 'percent_passed') footerText = `${percentPassed}%`;
-  else if (footer === 'days_left_percent_left') footerText = `${daysLeft} ${lang === 'uk' ? 'днiв' : lang === 'ru' ? 'дней' : 'days'} · ${percentLeft}%`;
+  const wd = lang==='uk'?'днiв':lang==='ru'?'дней':'days';
+  let ftText = '';
+  if (footer==='days_left')              ftText=`${dLeft} ${wd} залишилось`;
+  else if (footer==='days_passed')       ftText=`${doy} ${wd} пройдено`;
+  else if (footer==='percent_left')      ftText=`${pctLeft}%`;
+  else if (footer==='percent_passed')    ftText=`${pctPassed}%`;
+  else if (footer==='days_left_percent_left') ftText=`${dLeft} ${wd} · ${pctLeft}%`;
 
-  // Build SVG elements
-  let svgContent = '';
+  let svg = '';
 
   // Background
-  const bgOpacity = 1 - (opacity / 100);
-  svgContent += `<rect width="${w}" height="${h}" fill="${theme.bg}" opacity="${bgOpacity}"/>`;
+  const bgA = 1-(opacity/100);
+  svg += `<rect width="${w}" height="${h}" fill="${T.bg}" opacity="${bgA}"/>`;
 
-  // Year watermark
-  const yearFontSize = Math.round(w * 0.07);
-  svgContent += `<text x="${w/2}" y="${padY * 0.55}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="${yearFontSize}" font-weight="700" fill="${theme.text}" opacity="0.08" letter-spacing="${yearFontSize * 0.1}">${year}</text>`;
+  // Year label
+  const yFS = Math.round(w*0.065);
+  svg += `<text x="${w/2}" y="${pyT*0.6}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="${yFS}" font-weight="700" fill="${T.text}" opacity="0.07">${year}</text>`;
 
-  // Draw each month
-  for (let m = 0; m < 12; m++) {
-    const col = m % cols;
-    const row = Math.floor(m / cols);
+  // Months
+  for (let m=0; m<12; m++) {
+    const col = m%COLS, row = Math.floor(m/COLS);
+    const bX = pxL + col*(bW+gX);
+    const bY = pyT + row*(bH+gY);
 
-    const blockX = padX + col * (blockW + gapX);
-    const blockY = padY + row * (blockH + gapY);
+    const isCur = m===curM;
+    const mCol  = isCur ? T.accent : T.text;
+    const mOpa  = isCur ? 1 : 0.3;
 
-    const isCurrentMonth = m === todayMonth;
-    const monthColor = isCurrentMonth ? theme.today : theme.text;
-    const monthOpacity = isCurrentMonth ? 1 : 0.35;
+    // Month name
+    svg += `<text x="${bX}" y="${bY+mFS}" font-family="system-ui,sans-serif" font-size="${mFS}" font-weight="700" fill="${mCol}" opacity="${mOpa}" letter-spacing="1">${MN[m]}</text>`;
 
-    // Month label
-    svgContent += `<text x="${blockX}" y="${blockY + monthFontSize}" font-family="system-ui, -apple-system, sans-serif" font-size="${monthFontSize}" font-weight="600" fill="${monthColor}" opacity="${monthOpacity}" letter-spacing="1">${months[m].toUpperCase()}</text>`;
+    // Days grid
+    const gY0    = bY + mLH;
+    const dim    = new Date(year, m+1, 0).getDate();
+    const fDow   = (new Date(year, m, 1).getDay()+6)%7; // Mon=0
+    let cx = fDow, cy = 0;
 
-    // Calendar grid
-    const gridY = blockY + monthLabelH + 4;
-    const daysInMonth = new Date(year, m + 1, 0).getDate();
-    const firstDow = new Date(year, m, 1).getDay();
-    const offset = (firstDow + 6) % 7; // Mon=0
-
-    let cellX = 0;
-    let cellY = 0;
-
-    // Empty cells before first day
-    cellX = offset;
-
-    for (let d = 1; d <= daysInMonth; d++) {
-      const x = blockX + cellX * (cellSize + cellGap);
-      const y = gridY + cellY * (cellSize + cellGap);
+    for (let d=1; d<=dim; d++) {
+      const px = bX + cx*(cs+cg);
+      const py = gY0 + cy*(cs+cg);
+      const cx2= px + cs/2, cy2 = py + cs/2;
 
       // State
       let state = 'future';
-      if (m < todayMonth) state = 'past';
-      else if (m === todayMonth && d < todayDay) state = 'past';
-      else if (m === todayMonth && d === todayDay) state = 'today';
+      if (m < curM) state='past';
+      else if (m===curM && d<curD) state='past';
+      else if (m===curM && d===curD) state='today';
 
-      // Weekend highlight
-      const weekend = (weekendMode === 'weekends_only' || weekendMode === 'all') && isWeekend(year, m, d);
+      const wkend = (wkMode==='weekends_only'||wkMode==='all') && isWeekend(year,m,d);
 
-      // Color
-      let fillColor, fillOpacity;
-      if (state === 'today') {
-        fillColor = theme.today;
-        fillOpacity = 1;
-      } else if (state === 'past') {
-        fillColor = theme.past;
-        fillOpacity = weekend ? 0.7 : theme.pastOpacity;
+      // Colors per state
+      let fill, fillOpa;
+      if (state==='today') {
+        fill=T.accent; fillOpa=1;
+      } else if (state==='past') {
+        fill=T.dot_past; fillOpa=wkend?0.75:0.45;
       } else {
-        fillColor = theme.future;
-        fillOpacity = weekend && weekendMode === 'all' ? 0.6 : 0.4;
+        // future — always visible dot_future color
+        fill=T.dot_future; fillOpa=wkend&&wkMode==='all'?0.85:0.7;
       }
 
-      const todayScale = state === 'today' ? 1.2 : 1;
-      const adjSize = cellSize * todayScale;
-      const adjX = x - (adjSize - cellSize) / 2;
-      const adjY = y - (adjSize - cellSize) / 2;
+      const todayBoost = state==='today' ? 1.25 : 1;
+      const r = cs/2 * todayBoost;
 
-      if (style === 'dots' || style === 'dots_mini') {
-        const r = (style === 'dots_mini' ? adjSize * 0.35 : adjSize * 0.45);
-        svgContent += `<circle cx="${adjX + adjSize/2}" cy="${adjY + adjSize/2}" r="${r}" fill="${state === 'future' ? 'none' : fillColor}" opacity="${fillOpacity}" stroke="${state === 'future' ? theme.future : 'none'}" stroke-width="1" stroke-opacity="0.5"/>`;
+      if (style==='dots'||style==='dots_mini') {
+        const dotR = (style==='dots_mini'?cs*0.32:cs*0.42)*todayBoost;
+        svg += `<circle cx="${cx2}" cy="${cy2}" r="${dotR}" fill="${fill}" opacity="${fillOpa}"/>`;
 
-      } else if (style === 'squares' || style === 'squares_rounded') {
-        const rx = style === 'squares_rounded' ? adjSize * 0.25 : 1;
-        svgContent += `<rect x="${adjX}" y="${adjY}" width="${adjSize}" height="${adjSize}" rx="${rx}" fill="${state === 'future' ? 'none' : fillColor}" opacity="${fillOpacity}" stroke="${state === 'future' ? theme.future : 'none'}" stroke-width="1" stroke-opacity="0.4"/>`;
+      } else if (style==='squares'||style==='squares_rounded') {
+        const rx2 = style==='squares_rounded' ? cs*0.28 : 1;
+        const s2  = cs*todayBoost;
+        const ox  = (s2-cs)/2;
+        svg += `<rect x="${px-ox}" y="${py-ox}" width="${s2}" height="${s2}" rx="${rx2}" fill="${fill}" opacity="${fillOpa}"/>`;
 
-      } else if (style === 'lines') {
-        const lw = Math.max(2, adjSize * 0.22);
-        const lh = adjSize * (state === 'today' ? 1.3 : 1);
-        svgContent += `<rect x="${adjX + adjSize/2 - lw/2}" y="${adjY}" width="${lw}" height="${lh}" rx="1" fill="${state === 'future' ? theme.future : fillColor}" opacity="${state === 'future' ? 0.3 : fillOpacity}"/>`;
+      } else if (style==='lines') {
+        const lw = Math.max(2, cs*0.2);
+        const lh = cs*(state==='today'?1.35:1);
+        svg += `<rect x="${cx2-lw/2}" y="${py}" width="${lw}" height="${lh}" rx="1" fill="${fill}" opacity="${fillOpa}"/>`;
 
-      } else if (style === 'bars') {
-        const bh = Math.max(3, adjSize * 0.45);
-        svgContent += `<rect x="${adjX}" y="${adjY + adjSize/2 - bh/2}" width="${adjSize}" height="${bh}" rx="1" fill="${state === 'future' ? theme.future : fillColor}" opacity="${state === 'future' ? 0.3 : fillOpacity}"/>`;
+      } else if (style==='bars') {
+        const bh2 = Math.max(3, cs*0.42);
+        svg += `<rect x="${px}" y="${cy2-bh2/2}" width="${cs}" height="${bh2}" rx="1" fill="${fill}" opacity="${fillOpa}"/>`;
 
-      } else if (style === 'numbers' || style === 'numbers_bold') {
-        const fw = style === 'numbers_bold' ? '700' : '400';
-        if (state === 'today') {
-          svgContent += `<circle cx="${x + cellSize/2}" cy="${y + cellSize/2}" r="${cellSize * 0.55}" fill="${theme.today}" opacity="0.2"/>`;
-        }
-        svgContent += `<text x="${x + cellSize/2}" y="${y + cellSize/2 + fontSize * 0.35}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="${fontSize}" font-weight="${fw}" fill="${state === 'future' ? theme.future : fillColor}" opacity="${state === 'future' ? 0.4 : fillOpacity}">${d}</text>`;
+      } else {
+        // numbers / numbers_bold
+        const fw = style==='numbers_bold'?'700':'400';
+        if (state==='today') svg += `<circle cx="${cx2}" cy="${cy2}" r="${cs*0.58}" fill="${T.accent}" opacity="0.18"/>`;
+        svg += `<text x="${cx2}" y="${cy2+dFS*0.36}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="${dFS}" font-weight="${fw}" fill="${fill}" opacity="${fillOpa}">${d}</text>`;
       }
 
-      cellX++;
-      if (cellX >= 7) { cellX = 0; cellY++; }
+      cx++;
+      if (cx>=7) { cx=0; cy++; }
     }
   }
 
   // Footer
-  if (footer !== 'none' && footerText) {
-    const footerFontSize = Math.round(w * 0.028);
-    svgContent += `<text x="${w/2}" y="${h - padY * 0.4}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="${footerFontSize}" fill="${theme.text}" opacity="0.4" letter-spacing="1">${footerText}</text>`;
+  if (footer!=='none' && ftText) {
+    const ftFS = Math.round(w*0.026);
+    svg += `<text x="${w/2}" y="${h-pyB*0.35}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="${ftFS}" fill="${T.text}" opacity="0.38" letter-spacing="1">${ftText}</text>`;
   }
 
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-${svgContent}
-</svg>`;
+  const out = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${svg}</svg>`;
 
-  return new Response(svg, {
+  return new Response(out, {
     headers: {
       'Content-Type': 'image/svg+xml',
       'Cache-Control': 'no-cache, no-store, must-revalidate',
