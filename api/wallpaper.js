@@ -1,8 +1,9 @@
-// api/wallpaper.js — Vercel Edge Function
-// api/wallpaper.js — Vercel Edge Function (PNG via @vercel/og)
+// api/wallpaper.js — Vercel Serverless Function (Node.js)
 import { ImageResponse } from '@vercel/og';
 
-export const config = { runtime: 'edge' };
+export const config = {
+  runtime: 'nodejs',
+};
 
 const MODELS = {
   iphone_16_pro: { w:1206, h:2622 }, iphone_16: { w:1179, h:2556 },
@@ -49,8 +50,8 @@ function isWeekend(y,m,d) {
   return dow===0||dow===6;
 }
 
-export default async function handler(req) {
-  const sp = new URL(req.url).searchParams;
+export default async function handler(req, res) {
+  const sp = new URL(req.url, 'http://localhost').searchParams;
   const model   = sp.get('model')         || 'iphone_15_pro';
   const style   = sp.get('style')         || 'dots';
   const calSize = sp.get('calendar_size') || 'standard';
@@ -65,30 +66,28 @@ export default async function handler(req) {
   const T  = THEMES[tName] || THEMES['graphite_orange'];
   const MN = MONTHS[lang]  || MONTHS['uk'];
 
-  const now      = getDateInTimezone(tz);
-  const year     = now.getFullYear();
-  const curM     = now.getMonth();
-  const curD     = now.getDate();
-  const doy      = getDayOfYear(now);
-  const diy      = getDaysInYear(year);
-  const dLeft    = diy - doy;
-  const pctLeft  = Math.round((dLeft/diy)*100);
-  const pctPassed= 100-pctLeft;
+  const now       = getDateInTimezone(tz);
+  const year      = now.getFullYear();
+  const curM      = now.getMonth();
+  const curD      = now.getDate();
+  const doy       = getDayOfYear(now);
+  const diy       = getDaysInYear(year);
+  const dLeft     = diy - doy;
+  const pctLeft   = Math.round((dLeft/diy)*100);
+  const pctPassed = 100-pctLeft;
 
-  const scl = calSize==='small'?0.75 : calSize==='large'?1.2 : 1.0;
-  const COLS=3, ROWS=4;
-
-  const pxL = w*0.055, pxR = w*0.055;
-  const pyT = h*0.09,  pyB = h*0.06;
-  const gX  = w*0.025, gY  = h*0.018;
-
-  const bW = (w - pxL - pxR - gX*(COLS-1)) / COLS;
-  const bH = (h - pyT - pyB - gY*(ROWS-1)) / ROWS;
-
-  const cs  = Math.floor(Math.min(bW/7.8, bH/9.5) * scl);
-  const cg  = Math.max(1, Math.round(cs*0.2));
-  const mLH = Math.round(cs*1.4);
-  const mFS = Math.max(8, Math.round(cs*0.6));
+  const scl  = calSize==='small'?0.75 : calSize==='large'?1.2 : 1.0;
+  const COLS = 3, ROWS = 4;
+  const pxL  = w*0.055, pxR = w*0.055;
+  const pyT  = h*0.09,  pyB = h*0.06;
+  const gX   = w*0.025, gY  = h*0.018;
+  const bW   = (w - pxL - pxR - gX*(COLS-1)) / COLS;
+  const bH   = (h - pyT - pyB - gY*(ROWS-1)) / ROWS;
+  const cs   = Math.floor(Math.min(bW/7.8, bH/9.5) * scl);
+  const cg   = Math.max(1, Math.round(cs*0.2));
+  const mLH  = Math.round(cs*1.4);
+  const mFS  = Math.max(8, Math.round(cs*0.6));
+  const dFS  = Math.max(7, Math.round(cs*0.55));
 
   const wd = lang==='uk'?'днів':lang==='ru'?'дней':'days';
   let ftText = '';
@@ -98,43 +97,29 @@ export default async function handler(req) {
   else if (footer==='percent_passed')         ftText=`${pctPassed}%`;
   else if (footer==='days_left_percent_left') ftText=`${dLeft} ${wd} · ${pctLeft}%`;
 
-  // Build month blocks as React elements for @vercel/og
   const monthBlocks = [];
 
   for (let m=0; m<12; m++) {
     const col = m%COLS, row = Math.floor(m/COLS);
     const bX = pxL + col*(bW+gX);
     const bY = pyT + row*(bH+gY);
-
-    const isCur = m===curM;
+    const isCur  = m===curM;
     const mColor = isCur ? T.accent : T.text;
-    const mOpa   = isCur ? '1' : '0.3';
+    const mOpa   = isCur ? 1 : 0.3;
 
     const dim  = new Date(year, m+1, 0).getDate();
     const fDow = (new Date(year, m, 1).getDay()+6)%7;
 
-    // Build rows of dots/cells
-    const cells = [];
-    let cx = fDow;
-    let rowCells = [];
+    // build week rows
+    const allCells = [];
+    for (let e=0; e<fDow; e++) allCells.push(null);
+    for (let d=1; d<=dim; d++) allCells.push(d);
+    while (allCells.length%7!==0) allCells.push(null);
 
-    // push empty cells
-    for (let e=0; e<fDow; e++) rowCells.push(null);
-
-    for (let d=1; d<=dim; d++) {
-      rowCells.push(d);
-      if (rowCells.length===7 || d===dim) {
-        while (rowCells.length<7) rowCells.push(null);
-        cells.push([...rowCells]);
-        rowCells=[];
-      }
-    }
-
-    const rowEls = cells.map((row, ri) => {
-      const cellEls = row.map((d, ci) => {
-        if (d===null) return (
-          <div key={ci} style={{width:cs, height:cs, flexShrink:0}} />
-        );
+    const weekRows = [];
+    for (let r=0; r<allCells.length/7; r++) {
+      const rowCells = allCells.slice(r*7, r*7+7).map((d, ci) => {
+        if (d===null) return <div key={ci} style={{width:cs,height:cs,flexShrink:0}} />;
 
         let state = 'future';
         if (m < curM) state='past';
@@ -142,15 +127,13 @@ export default async function handler(req) {
         else if (m===curM && d===curD) state='today';
 
         const wkend = (wkMode==='weekends_only'||wkMode==='all') && isWeekend(year,m,d);
-
         let fill, opa;
-        if (state==='today')      { fill=T.accent; opa=1; }
-        else if (state==='past')  { fill=T.past;   opa=wkend?0.75:0.45; }
-        else                      { fill=T.future;  opa=wkend&&wkMode==='all'?0.85:0.65; }
+        if (state==='today')     { fill=T.accent; opa=1; }
+        else if (state==='past') { fill=T.past;   opa=wkend?0.75:0.45; }
+        else                     { fill=T.future;  opa=wkend&&wkMode==='all'?0.85:0.65; }
 
         const boost = state==='today'?1.2:1;
         const sz = Math.round(cs*boost);
-        const off = Math.round((sz-cs)/2);
 
         if (style==='dots'||style==='dots_mini') {
           const dotSz = Math.round((style==='dots_mini'?cs*0.6:cs*0.82)*boost);
@@ -177,99 +160,47 @@ export default async function handler(req) {
           );
         }
         if (style==='bars') {
-          const bh=Math.max(3,Math.round(cs*0.42));
+          const bh2=Math.max(3,Math.round(cs*0.42));
           return (
             <div key={ci} style={{width:cs,height:cs,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <div style={{width:sz,height:bh,borderRadius:1,background:fill,opacity:opa}} />
+              <div style={{width:sz,height:bh2,borderRadius:1,background:fill,opacity:opa}} />
             </div>
           );
         }
         // numbers
         const fw = style==='numbers_bold'?'700':'400';
-        const dFS = Math.max(7,Math.round(cs*0.55));
         return (
-          <div key={ci} style={{width:cs,height:cs,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
+          <div key={ci} style={{width:cs,height:cs,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
             {state==='today' && <div style={{position:'absolute',width:sz,height:sz,borderRadius:'50%',background:T.accent,opacity:0.18}} />}
             <span style={{fontSize:dFS,fontWeight:fw,color:fill,opacity:opa}}>{d}</span>
           </div>
         );
       });
 
-      return (
-        <div key={ri} style={{display:'flex',flexDirection:'row',gap:cg,marginBottom:cg}}>
-          {cellEls}
+      weekRows.push(
+        <div key={r} style={{display:'flex',flexDirection:'row',gap:cg,marginBottom:cg}}>
+          {rowCells}
         </div>
       );
-    });
+    }
 
     monthBlocks.push(
-      <div key={m} style={{
-        position:'absolute',
-        left:bX,
-        top:bY,
-        display:'flex',
-        flexDirection:'column',
-      }}>
-        <div style={{
-          fontSize:mFS,
-          fontWeight:'700',
-          color:mColor,
-          opacity:mOpa,
-          marginBottom:Math.round(mLH-mFS),
-          letterSpacing:1,
-          fontFamily:'sans-serif',
-        }}>{MN[m]}</div>
-        <div style={{display:'flex',flexDirection:'column'}}>
-          {rowEls}
-        </div>
+      <div key={m} style={{position:'absolute',left:bX,top:bY,display:'flex',flexDirection:'column'}}>
+        <div style={{fontSize:mFS,fontWeight:'700',color:mColor,opacity:mOpa,marginBottom:Math.round(mLH-mFS),letterSpacing:1}}>{MN[m]}</div>
+        <div style={{display:'flex',flexDirection:'column'}}>{weekRows}</div>
       </div>
     );
   }
 
-  const yFS = Math.round(w*0.065);
+  const yFS  = Math.round(w*0.065);
   const ftFS = Math.round(w*0.026);
-  const bgOpa = 1-(opacity/100);
 
   const image = (
-    <div style={{
-      position:'relative',
-      width:w,
-      height:h,
-      background:T.bg,
-      display:'flex',
-      overflow:'hidden',
-    }}>
-      {/* year watermark */}
-      <div style={{
-        position:'absolute',
-        top:pyT*0.3,
-        left:0,
-        right:0,
-        textAlign:'center',
-        fontSize:yFS,
-        fontWeight:'700',
-        color:T.text,
-        opacity:0.06,
-        fontFamily:'sans-serif',
-        letterSpacing:yFS*0.1,
-      }}>{year}</div>
-
+    <div style={{position:'relative',width:w,height:h,background:T.bg,display:'flex',overflow:'hidden'}}>
+      <div style={{position:'absolute',top:pyT*0.3,left:0,right:0,textAlign:'center',fontSize:yFS,fontWeight:'700',color:T.text,opacity:0.06,letterSpacing:yFS*0.1}}>{year}</div>
       {monthBlocks}
-
-      {/* footer */}
       {footer!=='none' && ftText && (
-        <div style={{
-          position:'absolute',
-          bottom:pyB*0.3,
-          left:0,
-          right:0,
-          textAlign:'center',
-          fontSize:ftFS,
-          color:T.text,
-          opacity:0.38,
-          fontFamily:'sans-serif',
-          letterSpacing:1,
-        }}>{ftText}</div>
+        <div style={{position:'absolute',bottom:pyB*0.3,left:0,right:0,textAlign:'center',fontSize:ftFS,color:T.text,opacity:0.38,letterSpacing:1}}>{ftText}</div>
       )}
     </div>
   );
