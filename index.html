@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Календар — не профукай рік</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0a; --surface: #141414; --surface2: #1c1c1c;
+    --border: #2a2a2a; --accent: #e8ff47; --text: #f0f0f0;
+    --muted: #666; --radius: 14px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; overflow-x: hidden; }
+  .hero { padding: 80px 24px 40px; max-width: 480px; margin: 0 auto; }
+  .hero-tag { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
+  .hero-tag::before { content: ''; display: block; width: 20px; height: 1px; background: var(--muted); }
+  .hero h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(52px, 14vw, 80px); line-height: 0.92; margin-bottom: 20px; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { font-size: 15px; color: var(--muted); line-height: 1.6; }
+  .form-wrap { max-width: 480px; margin: 0 auto; padding: 0 24px 120px; }
+  .section-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.18em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; margin-top: 40px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-family: 'DM Mono', monospace; }
+  select { background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 13px 16px; border-radius: var(--radius); appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; cursor: pointer; transition: border-color 0.2s; width: 100%; }
+  select:focus { outline: none; border-color: var(--accent); }
+  .slider-wrap { display: flex; align-items: center; gap: 12px; }
+  input[type="range"] { -webkit-appearance: none; height: 4px; background: var(--surface2); border-radius: 2px; flex: 1; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+  .preview-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; display: flex; align-items: center; justify-content: center; min-height: 80px; margin-top: 8px; }
+  .preview-inner { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .output-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-top: 8px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); word-break: break-all; line-height: 1.6; min-height: 60px; transition: border-color 0.3s; }
+  .output-box.active { color: var(--accent); border-color: rgba(232,255,71,0.3); }
+  .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .btn { font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; padding: 13px 20px; border-radius: 10px; border: none; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: var(--accent); color: #0a0a0a; flex: 1; }
+  .btn-primary:hover { background: #d4eb30; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .instructions { margin-top: 60px; padding-top: 40px; border-top: 1px solid var(--border); }
+  .instructions h2 { font-family: 'Bebas Neue', sans-serif; font-size: 36px; margin-bottom: 24px; }
+  .step { display: flex; gap: 16px; margin-bottom: 20px; }
+  .step-num { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); background: rgba(232,255,71,0.08); border: 1px solid rgba(232,255,71,0.2); border-radius: 6px; padding: 4px 8px; min-width: 32px; text-align: center; margin-top: 2px; flex-shrink: 0; }
+  .step-text { font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .step-text strong { color: var(--text); font-weight: 500; }
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--accent); color: #0a0a0a; font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; padding: 12px 24px; border-radius: 100px; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; white-space: nowrap; z-index: 999; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-tag">Обої для iPhone · Щоденне оновлення</div>
+  <h1>Не профукай<br><span>рік.</span></h1>
+  <p>Обої-календар які оновлюються автоматично і показують прогрес року.</p>
+</div>
+
+<div class="form-wrap">
+  <div class="section-label">1 · Налаштування</div>
+
+  <div class="field">
+    <label>Модель iPhone</label>
+    <select id="model">
+      <option value="iphone_16_pro">iPhone 16 Pro / Pro Max</option>
+      <option value="iphone_16">iPhone 16 / Plus</option>
+      <option value="iphone_15_pro" selected>iPhone 15 Pro / Pro Max</option>
+      <option value="iphone_15">iPhone 15 / Plus</option>
+      <option value="iphone_14_pro">iPhone 14 Pro / Pro Max</option>
+      <option value="iphone_14">iPhone 14 / Plus</option>
+      <option value="iphone_13_pro">iPhone 13 Pro / Pro Max</option>
+      <option value="iphone_13">iPhone 13 / mini</option>
+      <option value="iphone_se">iPhone SE</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Стиль</label>
+    <select id="style">
+      <option value="dots" selected>Dots — кружечки</option>
+      <option value="dots_mini">Dots Mini — дрібні кружечки</option>
+      <option value="numbers">Numbers — числа</option>
+      <option value="numbers_bold">Numbers Bold — жирні числа</option>
+      <option value="squares">Squares — квадрати</option>
+      <option value="squares_rounded">Squares Rounded — заокруглені</option>
+      <option value="lines">Lines — лінії</option>
+      <option value="bars">Bars — смуги</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Розмір</label>
+    <select id="calendar_size">
+      <option value="small">Малий</option>
+      <option value="standard" selected>Стандартний</option>
+      <option value="large">Великий</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Тема</label>
+    <select id="theme">
+      <option value="graphite_orange" selected>Graphite Orange</option>
+      <option value="graphite_yellow">Graphite Yellow</option>
+      <option value="graphite_green">Graphite Green</option>
+      <option value="graphite_blue">Graphite Blue</option>
+      <option value="graphite_red">Graphite Red</option>
+      <option value="graphite_pink">Graphite Pink</option>
+      <option value="white_orange">White Orange</option>
+      <option value="white_yellow">White Yellow</option>
+      <option value="white_blue">White Blue</option>
+      <option value="white_green">White Green</option>
+      <option value="black_white">Black and White</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Вихідні</label>
+    <select id="weekend_mode">
+      <option value="none">Без виділення</option>
+      <option value="weekends_only" selected>Тільки вихідні</option>
+      <option value="all">Всі дні тижня</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Мова</label>
+    <select id="lang">
+      <option value="uk" selected>Українська</option>
+      <option value="en">English</option>
+      <option value="ru">Русский</option>
+      <option value="pl">Polski</option>
+      <option value="de">Deutsch</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Часовий пояс</label>
+    <select id="timezone">
+      <option value="2" selected>UTC+2 (Київ)</option>
+      <option value="3">UTC+3 (Москва)</option>
+      <option value="0">UTC+0 (Лондон)</option>
+      <option value="1">UTC+1 (Берлін)</option>
+      <option value="-5">UTC-5 (Нью-Йорк)</option>
+      <option value="-8">UTC-8 (Лос-Анджелес)</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Підпис внизу</label>
+    <select id="footer">
+      <option value="days_left_percent_left" selected>Залишилось днів + %</option>
+      <option value="days_left">Залишилось днів</option>
+      <option value="days_passed">Пройдено днів</option>
+      <option value="percent_left">% залишилось</option>
+      <option value="percent_passed">% пройдено</option>
+      <option value="none">Без підпису</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Прозорість фону</label>
+    <div class="slider-wrap">
+      <input type="range" id="opacity" min="0" max="100" step="10" value="0">
+      <span class="slider-value" id="opacity-val">0%</span>
+    </div>
+  </div>
+
+  <div class="section-label">Приклад стилю</div>
+  <div class="preview-box"><div class="preview-inner" id="preview"></div></div>
+
+  <div class="section-label">Ссилка для iPhone</div>
+  <div class="output-box" id="url-output">Налаштуй параметри вище — ссилка з'явиться тут</div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="copyUrl()">Скопіювати ссилку</button>
+    <button class="btn btn-secondary" onclick="openPng()">Відкрити PNG</button>
+  </div>
+
+  <div class="instructions">
+    <h2>Як налаштувати на iPhone</h2>
+    <div class="step"><div class="step-num">01</div><div class="step-text"><strong>Скопіюй ссилку</strong> вище.</div></div>
+    <div class="step"><div class="step-num">02</div><div class="step-text">Відкрий <strong>«Команди»</strong> → <strong>«Автоматизація»</strong> → <strong>«+»</strong></div></div>
+    <div class="step"><div class="step-num">03</div><div class="step-text">Тригер <strong>«Час доби»</strong> → 00:01 щодня. Вимкни «Надсилати сповіщення».</div></div>
+    <div class="step"><div class="step-num">04</div><div class="step-text">Додай дію <strong>«Отримати вміст URL»</strong> → встав ссилку.</div></div>
+    <div class="step"><div class="step-num">05</div><div class="step-text">Додай дію <strong>«Встановити шпалери»</strong> → «Вміст URL» → Екран блокування.</div></div>
+    <div class="step"><div class="step-num">06</div><div class="step-text">Натисни <strong>▶ Готово</strong> — щодня iPhone сам оновить обої!</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Скопійовано!</div>
+
+<script>
+  // ЗАМІНИТИ після деплою на Vercel на свій URL!
+  const BASE = 'https://ТВІЙ-ПРОЕКТ.vercel.app/api/wallpaper';
+
+  const PARAMS = ['model','style','calendar_size','weekend_mode','opacity','theme','lang','timezone','footer'];
+  const ACCENT_MAP = {
+    graphite_orange:'#ff8c42', graphite_yellow:'#e8ff47', graphite_green:'#4fffb0',
+    graphite_blue:'#47b8ff', graphite_red:'#ff4747', graphite_pink:'#ff47c8',
+    white_orange:'#ff8c42', white_yellow:'#f0c000', white_blue:'#3b82f6',
+    white_green:'#22c55e', black_white:'#ffffff'
+  };
+
+  function getUrl() {
+    const p = new URLSearchParams();
+    PARAMS.forEach(id => p.set(id, document.getElementById(id).value));
+    return BASE + '?' + p.toString();
+  }
+
+  function updateAll() {
+    const out = document.getElementById('url-output');
+    out.textContent = getUrl();
+    out.classList.add('active');
+    updatePreview();
+  }
+
+  function updatePreview() {
+    const style = document.getElementById('style').value;
+    const theme = document.getElementById('theme').value;
+    const accent = ACCENT_MAP[theme] || '#e8ff47';
+    const container = document.getElementById('preview');
+    container.innerHTML = '';
+    const total = 12, today = 5;
+    for (let i = 1; i <= total; i++) {
+      const el = document.createElement('div');
+      const state = i < today ? 'past' : i === today ? 'today' : 'future';
+      const color = state === 'today' ? accent : state === 'past' ? accent + '88' : 'transparent';
+      if (style.startsWith('dots')) {
+        const sz = style === 'dots_mini' ? 10 : 14;
+        el.style.cssText = `width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:1px solid ${state==='future'?'#333':'transparent'};transform:${state==='today'?'scale(1.3)':'none'};display:inline-block`;
+      } else if (style.startsWith('squares')) {
+        el.style.cssText = `width:14px;height:14px;border-radius:${style.includes('rounded')?'4px':'2px'};background:${color};border:1px solid ${state==='future'?'#333':'transparent'};display:inline-block`;
+      } else if (style === 'lines') {
+        el.style.cssText = `width:3px;height:18px;border-radius:2px;background:${state==='future'?'#222':color};display:inline-block`;
+      } else if (style === 'bars') {
+        el.style.cssText = `width:16px;height:7px;border-radius:2px;background:${state==='future'?'#222':color};display:inline-block`;
+      } else {
+        el.style.cssText = `font-family:'DM Mono',monospace;font-size:${style.includes('bold')?'13px':'11px'};font-weight:${style.includes('bold')?'700':'400'};color:${state==='future'?'#333':color};min-width:20px;text-align:center;display:inline-block`;
+        el.textContent = i;
+      }
+      container.appendChild(el);
+    }
+  }
+
+  document.getElementById('opacity').addEventListener('input', function() {
+    document.getElementById('opacity-val').textContent = this.value + '%';
+    updateAll();
+  });
+  PARAMS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.tagName === 'SELECT') el.addEventListener('change', updateAll);
+  });
+
+  function copyUrl() {
+    navigator.clipboard.writeText(getUrl()).then(() => showToast('Ссилку скопійовано!'));
+  }
+  function openPng() { window.open(getUrl(), '_blank'); }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  updateAll();
+</script>
+</body>
+</html>
